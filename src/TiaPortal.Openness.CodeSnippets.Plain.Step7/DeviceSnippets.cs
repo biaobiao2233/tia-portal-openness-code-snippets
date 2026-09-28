@@ -12,11 +12,10 @@ namespace TiaPortal.Openness.CodeSnippets.Plain.Step7;
 public class DeviceSnippets(string tiaArchiveName) : BaseClass(tiaArchiveName)
 {
     [Test]
-    public void EnumerateDevicesAcrossRootGroupsAndUngroupedDevices()
+    public void EnumerateAllDevicesIncludesRootDevices()
     {
         var devices = EnumerateAllDevices(Project);
 
-        Assert.That(devices, Is.Not.Null);
         Assert.That(devices, Is.SupersetOf(Project.Devices));
         Assert.That(devices.Select(device => device.Name), Has.All.Not.Empty);
     }
