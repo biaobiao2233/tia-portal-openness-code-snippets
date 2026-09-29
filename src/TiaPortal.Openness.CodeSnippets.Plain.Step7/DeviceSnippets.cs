@@ -20,6 +20,47 @@ public class DeviceSnippets(string tiaArchiveName) : BaseClass(tiaArchiveName)
         Assert.That(devices.Select(device => device.Name), Has.All.Not.Empty);
     }
 
+    [Test]
+    public void EnumerateAllDevices_IncludesRootNestedGroupsAndUngroupedDevicesExactlyOnce()
+    {
+        var expectedNames = new List<string>();
+        AddDeviceNames(expectedNames, Project.Devices);
+        foreach (var group in Project.DeviceGroups)
+        {
+            AddGroupDeviceNames(expectedNames, group);
+        }
+
+        if (Project.UngroupedDevicesGroup != null)
+        {
+            AddDeviceNames(expectedNames, Project.UngroupedDevicesGroup.Devices);
+        }
+
+        const string plcTypeIdentifier = "OrderNumber:6ES7 515-2UM01-0AB0/V2.9";
+        const string ungroupedTypeIdentifier = "OrderNumber:6ES7 155-6AU00-0CN0/V3.0";
+
+        var rootDevice = Project.Devices.CreateWithItem(plcTypeIdentifier, "EnumRootItem", "EnumRootDevice");
+        var outerGroup = Project.DeviceGroups.Create("EnumOuterGroup");
+        var outerDevice = outerGroup.Devices.CreateWithItem(plcTypeIdentifier, "EnumOuterItem", "EnumOuterDevice");
+        var innerGroup = outerGroup.Groups.Create("EnumInnerGroup");
+        var innerDevice = innerGroup.Devices.CreateWithItem(plcTypeIdentifier, "EnumInnerItem", "EnumInnerDevice");
+        var ungroupedDevice = Project.UngroupedDevicesGroup.Devices.CreateWithItem(
+            ungroupedTypeIdentifier, "EnumUngroupedItem", "EnumUngroupedDevice");
+
+        Assert.That(rootDevice.Name, Is.EqualTo("EnumRootDevice"));
+        Assert.That(outerDevice.Name, Is.EqualTo("EnumOuterDevice"));
+        Assert.That(innerDevice.Name, Is.EqualTo("EnumInnerDevice"));
+        Assert.That(ungroupedDevice.Name, Is.EqualTo("EnumUngroupedDevice"));
+        Assert.That(innerGroup.Name, Is.EqualTo("EnumInnerGroup"));
+        Assert.That(outerGroup.Groups.Select(group => group.Name), Does.Contain("EnumInnerGroup"));
+
+        AddDeviceNames(expectedNames, new[] { rootDevice, outerDevice, innerDevice, ungroupedDevice });
+
+        var actualNames = EnumerateAllDevices(Project).Select(device => device.Name).ToList();
+
+        Assert.That(actualNames, Has.Count.EqualTo(expectedNames.Count));
+        Assert.That(actualNames, Is.EquivalentTo(expectedNames));
+    }
+
     /// <summary>
     /// Plain Openness equivalent of <c>Project.AllDevices()</c> from the Openness Extensions package.
     /// Devices can live in the project root, in nested device groups, or in the ungrouped devices group.
@@ -57,6 +98,26 @@ public class DeviceSnippets(string tiaArchiveName) : BaseClass(tiaArchiveName)
         foreach (var device in devices)
         {
             result.Add(device);
+        }
+    }
+
+    private static void AddGroupDeviceNames(List<string> names, DeviceUserGroup group)
+    {
+        AddDeviceNames(names, group.Devices);
+        foreach (var child in group.Groups)
+        {
+            AddGroupDeviceNames(names, child);
+        }
+    }
+
+    private static void AddDeviceNames(List<string> names, IEnumerable<Device> devices)
+    {
+        foreach (var device in devices)
+        {
+            if (!names.Contains(device.Name))
+            {
+                names.Add(device.Name);
+            }
         }
     }
 }
